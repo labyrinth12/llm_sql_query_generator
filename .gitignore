@@ -1,0 +1,15 @@
+# Ignore environment and Python files
+venv/
+__pycache__/
+*.pyc
+
+# Ignore environment secrets
+.env
+
+# Ignore local databases
+*.db
+*.sqlite3
+
+# Ignore OS and editor files
+.DS_Store
+.vscode/
