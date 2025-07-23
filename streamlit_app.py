@@ -1,7 +1,7 @@
 import streamlit as st
 import requests
-
-API_URL = "http://localhost:8000/generate"  # Your FastAPI endpoint
+API_URL = "https://lmsqlquerygenerator-production.up.railway.app/generate"
+  # Your FastAPI endpoint
 
 st.set_page_config(page_title="Gemini SQL Generator", layout="wide")
 
