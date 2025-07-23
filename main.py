@@ -5,10 +5,9 @@ from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
 from sqlalchemy import create_engine, MetaData, text
 from sqlalchemy.engine.reflection import Inspector
+from fastapi.middleware.cors import CORSMiddleware
 import google.generativeai as genai
 from dotenv import load_dotenv
-from fastapi.middleware.cors import CORSMiddleware
-from mangum import Mangum
 
 # Load environment variables from .env
 load_dotenv()
@@ -22,7 +21,7 @@ class Config:
         self.database_url = os.getenv("DATABASE_URL", "sqlite:///retail.db")
 
 # ---------------------------
-# Input/Output Schema
+# Input/Output Schemas
 # ---------------------------
 class QueryRequest(BaseModel):
     question: str
@@ -32,7 +31,7 @@ class QueryResponse(BaseModel):
     result: list
 
 # ---------------------------
-# LLM Interface using Gemini
+# Gemini LLM Wrapper
 # ---------------------------
 class GeminiLLM:
     def __init__(self, config: Config):
@@ -85,7 +84,7 @@ SQL:
         return sql.replace("```sql", "").replace("```", "").strip()
 
 # ---------------------------
-# Schema Reader
+# Schema Extractor
 # ---------------------------
 class SchemaExtractor:
     def __init__(self, db_url: str):
@@ -123,7 +122,8 @@ def create_app():
     # Enable CORS if needed
     app.add_middleware(
         CORSMiddleware,
-        allow_origins=["*"],
+        allow_origins=["*"],  # Adjust in production
+        allow_credentials=True,
         allow_methods=["*"],
         allow_headers=["*"],
     )
@@ -153,8 +153,5 @@ def create_app():
 
     return app
 
-# ---------------------------
-# Entry Point for Vercel (Handler)
-# ---------------------------
+# FastAPI app instance
 app = create_app()
-handler = Mangum(app)

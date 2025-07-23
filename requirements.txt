@@ -6,4 +6,3 @@ google-generativeai
 python-dotenv
 streamlit
 requests
-mangum
