@@ -61,12 +61,12 @@ class GeminiLLM:
 You are an expert SQL generator.
 
 Given the schema and a natural language question, generate a **SQLite-compatible SQL** query that:
-- Encloses all column and table names in double quotes (e.g., "Primary Cement")
+- Selects full rows using `SELECT *` by default, even if the user only mentions one field (e.g., name, id, etc.)
+- Always returns all columns in the result (i.e., avoid selecting individual columns unless explicitly asked)
+- Encloses all column and table names in double quotes (e.g., "users", "name")
 - Uses correct spacing and SQL syntax
 - Does **not** include comments, explanations, or markdown
-- Avoids column aliases unless required
 - Avoids malformed quotes or slash characters
-- Avoids duplicating column names unless using UNION or UNION ALL properly
 
 {schema}
 
