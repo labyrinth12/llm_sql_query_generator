@@ -1,3 +1,7 @@
+# Ignore all .db files EXCEPT retail.db
+*.db
+!retail.db
+
 # Ignore environment and Python files
 venv/
 __pycache__/
@@ -6,8 +10,7 @@ __pycache__/
 # Ignore environment secrets
 .env
 
-# Ignore local databases
-*.db
+# Ignore .sqlite3 files
 *.sqlite3
 
 # Ignore OS and editor files
