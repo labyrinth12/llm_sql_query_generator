@@ -8,13 +8,10 @@ from sqlalchemy.engine.reflection import Inspector
 import google.generativeai as genai
 from dotenv import load_dotenv
 from fastapi.middleware.cors import CORSMiddleware
-
-
+from mangum import Mangum
 
 # Load environment variables from .env
 load_dotenv()
-
-
 
 # ---------------------------
 # Configuration
@@ -24,18 +21,15 @@ class Config:
         self.gemini_api_key = os.getenv("GEMINI_API_KEY", "your-gemini-api-key")
         self.database_url = os.getenv("DATABASE_URL", "sqlite:///retail.db")
 
-
 # ---------------------------
 # Input/Output Schema
 # ---------------------------
 class QueryRequest(BaseModel):
     question: str
 
-
 class QueryResponse(BaseModel):
     sql: str
     result: list
-
 
 # ---------------------------
 # LLM Interface using Gemini
@@ -90,7 +84,6 @@ SQL:
     def _clean_sql(self, sql: str) -> str:
         return sql.replace("```sql", "").replace("```", "").strip()
 
-
 # ---------------------------
 # Schema Reader
 # ---------------------------
@@ -116,9 +109,8 @@ class SchemaExtractor:
             schema[table_name] = columns
         return schema
 
-
 # ---------------------------
-# API Server
+# FastAPI App Factory
 # ---------------------------
 def create_app():
     config = Config()
@@ -127,6 +119,14 @@ def create_app():
     schema = schema_extractor.extract_schema()
 
     app = FastAPI()
+
+    # Enable CORS if needed
+    app.add_middleware(
+        CORSMiddleware,
+        allow_origins=["*"],
+        allow_methods=["*"],
+        allow_headers=["*"],
+    )
 
     @app.get("/")
     def root():
@@ -153,5 +153,8 @@ def create_app():
 
     return app
 
-
+# ---------------------------
+# Entry Point for Vercel (Handler)
+# ---------------------------
 app = create_app()
+handler = Mangum(app)
