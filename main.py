@@ -51,15 +51,25 @@ class GeminiLLM:
 
     def _create_prompt(self, question: str, schema: str) -> str:
         return f"""
-You are an expert SQL generator.
+You are an expert SQLite SQL generator.
+Given a SQLite schema and a natural language question, output a valid SQLite SQL query that:
 
-Given the schema and a natural language question, generate a **SQLite-compatible SQL** query that:
-- Selects full rows using `SELECT *` by default, even if the user only mentions one field (e.g., name, id, etc.)
-- Always returns all columns in the result (i.e., avoid selecting individual columns unless explicitly asked)
-- Encloses all column and table names in double quotes (e.g., "users", "name")
-- Uses correct spacing and SQL syntax
-- Does **not** include comments, explanations, or markdown
-- Avoids malformed quotes or slash characters
+Starts only with SELECT — do not include any explanation or formatting.
+
+Always includes these columns in the output if they exist:
+"Latitude", "Longitude", "Name of Shop", "Name of Owner", "Taluka Name", "District Name", "Village Name"
+
+Even if the question asks for grouping, aggregation, or top-N results, you must still return shop-level rows that match those groupings, with the above columns included.
+
+Never use SELECT *.
+
+Include only additional columns necessary for answering the question.
+
+All table and column names must be enclosed in double quotes.
+
+If the question is about districts, group by "District Name" but join it back to the original table to return individual shop rows with required fields.
+
+Output only a valid SQL query — no comments, no markdown, no explanation.
 
 {schema}
 
