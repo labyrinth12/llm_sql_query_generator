@@ -1,8 +1,0 @@
-fastapi
-uvicorn
-sqlalchemy
-pydantic
-google-generativeai
-python-dotenv
-streamlit
-requests

@@ -1,13 +1,14 @@
-import os
 import logging
+import os
 from typing import Dict
+
+from dotenv import load_dotenv
 from fastapi import FastAPI, HTTPException
+from fastapi.middleware.cors import CORSMiddleware
+from openai import OpenAI
 from pydantic import BaseModel
 from sqlalchemy import create_engine, MetaData, text
 from sqlalchemy.engine.reflection import Inspector
-from fastapi.middleware.cors import CORSMiddleware
-import google.generativeai as genai
-from dotenv import load_dotenv
 
 # Load environment variables from .env
 load_dotenv()
@@ -19,6 +20,7 @@ class Config:
     def __init__(self):
         self.gemini_api_key = os.getenv("GEMINI_API_KEY", "your-gemini-api-key")
         self.database_url = os.getenv("DATABASE_URL", "sqlite:///retail.db")
+        self.openai_api_key = os.getenv("OPENAI_API_KEY", "your-openai-api-key")
 
 # ---------------------------
 # Input/Output Schemas
@@ -30,55 +32,59 @@ class QueryResponse(BaseModel):
     sql: str
     result: list
 
-# ---------------------------
-# Gemini LLM Wrapper
-# ---------------------------
-class GeminiLLM:
+class OpenAILLM:
     def __init__(self, config: Config):
         self.config = config
-        genai.configure(api_key=config.gemini_api_key)
-        self.model = genai.GenerativeModel("models/gemini-1.5-flash")
+        self.client = OpenAI(api_key=config.openai_api_key)
+        self.model = "gpt-4o"  # or "gpt-3.5-turbo" for cheaper option
 
     def generate_sql(self, question: str, schema: Dict) -> str:
         schema_text = self._format_schema(schema)
         prompt = self._create_prompt(question, schema_text)
         try:
-            response = self.model.generate_content(prompt)
-            return self._clean_sql(response.text)
+            response = self.client.chat.completions.create(
+                model=self.model,
+                messages=[
+                    {"role": "system", "content": "You are an expert SQLite SQL generator."},
+                    {"role": "user", "content": prompt}
+                ],
+                temperature=0,
+                max_tokens=1000
+            )
+            return self._clean_sql(response.choices[0].message.content)
         except Exception as e:
-            logging.error(f"Gemini error: {e}")
+            logging.error(f"OpenAI error: {e}")
             return ""
 
     def _create_prompt(self, question: str, schema: str) -> str:
         return f"""
-You are an expert SQLite SQL generator.
-Given a SQLite schema and a natural language question, output a valid SQLite SQL query that:
+        Given a SQLite schema and a natural language question, output a valid SQLite SQL query that:
 
-Starts only with SELECT — do not include any explanation or formatting.
+        Starts only with SELECT — do not include any explanation or formatting.
 
-Always includes these columns in the output if they exist:
-"Latitude", "Longitude", "Name of Shop", "Name of Owner", "Taluka Name", "District Name", "Village Name"
+        Always includes these columns in the output if they exist:
+        "Latitude", "Longitude", "Name of Shop", "Name of Owner", "Taluka Name", "District Name", "Village Name"
 
-Even if the question asks for grouping, aggregation, or top-N results, you must still return shop-level rows that match those groupings, with the above columns included.
+        Even if the question asks for grouping, aggregation, or top-N results, you must still return shop-level rows that match those groupings, with the above columns included.
 
-Never use SELECT *.
+        Never use SELECT *.
 
-Include only additional columns necessary for answering the question.
+        Include only additional columns necessary for answering the question.
 
-All table and column names must be enclosed in double quotes.
+        All table and column names must be enclosed in double quotes.
 
-If the question is about districts, group by "District Name" but join it back to the original table to return individual shop rows with required fields.
+        If the question is about districts, group by "District Name" but join it back to the original table to return individual shop rows with required fields.
 
-Output only a valid SQL query — no comments, no markdown, no explanation.
+        Output only a valid SQL query — no comments, no markdown, no explanation.
 
-{schema}
+        {schema}
 
-Question: {question}
+        Question: {question}
 
-Only return the SQL query (no explanation).
+        Only return the SQL query (no explanation).
 
-SQL:
-"""
+        SQL:
+        """
 
     def _format_schema(self, schema: Dict) -> str:
         text = "Schema:\n"
@@ -97,6 +103,7 @@ SQL:
 # Schema Extractor
 # ---------------------------
 class SchemaExtractor:
+
     def __init__(self, db_url: str):
         self.engine = create_engine(db_url)
         self.metadata = MetaData()
@@ -123,7 +130,7 @@ class SchemaExtractor:
 # ---------------------------
 def create_app():
     config = Config()
-    llm = GeminiLLM(config)
+    llm = OpenAILLM(config)
     schema_extractor = SchemaExtractor(config.database_url)
     schema = schema_extractor.extract_schema()
 
@@ -155,6 +162,8 @@ def create_app():
                 columns = result_proxy.keys()
                 rows = result_proxy.fetchall()
                 result = [dict(zip(columns, row)) for row in rows]
+
+
         except Exception as e:
             logging.error(f"DB execution error: {e}")
             raise HTTPException(status_code=400, detail=f"DB execution error: {str(e)}")
